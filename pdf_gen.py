@@ -178,7 +178,7 @@ def generate_table_summary(df):
         daging = menus.str.contains('daging').sum()
         ayam = menus.str.contains('ayam').sum()
         ikan = menus.str.contains('ikan').sum()
-        vege = menus.str.contains('vegetarian').sum() + menus.str.contains('vege').sum()
+        vege = menus.str.contains('vege').sum()
         
         # Reserved Logic: 
         # Check name or gp_name for "simpanan", "reserve", "vacant"

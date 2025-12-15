@@ -3,6 +3,7 @@ import streamlit.components.v1 as components
 import pandas as pd
 import os
 import pdf_gen
+import dashboard_gen
 
 # --- Configuration ---
 DEFAULT_ROWS = 7
@@ -44,6 +45,16 @@ def save_data(df):
 def get_table_id(r, c, cols):
     """Calculates table number based on grid position (1-based index)."""
     return (r * cols) + (c + 1)
+
+def get_table_id_oddeven(r, c, cols):
+    """Odd numbers on left, Even on right per row."""
+    start_num = (r * cols) + 1
+    end_num = (r + 1) * cols
+    row_nums = range(start_num, end_num + 1)
+    odds = [n for n in row_nums if n % 2 != 0]
+    evens = [n for n in row_nums if n % 2 == 0]
+    sorted_nums = odds + evens
+    return sorted_nums[c]
 
 def swap_tables(df, t1_id, t2_id):
     """Swaps the occupants of two tables by updating table_number."""
@@ -113,12 +124,43 @@ def main():
             st.session_state.rows = new_rows
             st.session_state.cols = new_cols
             st.rerun()
+
+    # Layout & Data Tools
+    with st.sidebar.expander("Layout & Tools", expanded=False):
+        layout_view = st.radio("Grid Numbering", ["Sequential", "Odd/Even"], index=0, key="layout_radio")
+        
+        st.markdown("---")
+        st.caption("Reassign Table Numbers")
+        if st.button("⚠ Reassign to Odd/Even"):
+            # Transformation Logic
+            id_map = {}
+            c_rows = st.session_state.rows
+            c_cols = st.session_state.cols
+            
+            for r in range(c_rows):
+                for c in range(c_cols):
+                    old_id = get_table_id(r, c, c_cols)
+                    new_id = get_table_id_oddeven(r, c, c_cols)
+                    id_map[old_id] = new_id
+            
+            if not df.empty:
+                new_df = df.copy()
+                # Map using the dictionary; values not in map are unchanged (using map with fillna/combine or replace)
+                # Safest for integer mapping with replace is usually replace(dict).
+                new_df['table_number'] = new_df['table_number'].replace(id_map)
+                
+                if save_data(new_df):
+                    st.success("Renumbering Complete!")
+                    st.cache_data.clear()
+                    st.rerun()
+                else:
+                    st.error("Failed to save data.")
             
     view_mode = st.sidebar.radio("View", ["Grid Layout", "Guest List"], index=0 if st.session_state.mode == 'Grid' else 1)
     
     # Reports
     st.sidebar.markdown("---")
-    st.sidebar.subheader("📄 PDF Reports")
+    st.sidebar.subheader("📄 Reports & Exports")
     if not df.empty:
         try:
             pdf2 = pdf_gen.generate_guest_list_by_table(df)
@@ -129,8 +171,46 @@ def main():
             
             pdf3 = pdf_gen.generate_table_summary(df)
             st.sidebar.download_button("Table Summary", data=pdf3, file_name="table_summary.pdf", mime="application/pdf")
+
+            # Dashboard Export
+            st.sidebar.markdown("---")
+            dash_html = dashboard_gen.generate_dashboard_html(df, st.session_state.rows, st.session_state.cols)
+            st.sidebar.download_button(
+                "Export Dashboard (HTML)", 
+                data=dash_html, 
+                file_name="banquet_dashboard.html", 
+                mime="text/html"
+            )
         except Exception as e:
             st.sidebar.error(f"Error generating PDF: {e}")
+
+    # CSV Exports
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("💾 CSV Exports")
+    if not df.empty:
+        @st.cache_data
+        def convert_df(df):
+            return df.to_csv(index=False).encode('utf-8')
+
+        menu_types = ["Ayam", "Daging", "Ikan", "Vegetarian"]
+        for m_type in menu_types:
+            # Filter by menu type (case insensitive)
+            # Ensure menu column is string and handle NaNs
+            mask = df['menu'].fillna('').astype(str).str.contains(m_type, case=False)
+            sub_df = df[mask].copy()
+            
+            # Select specific columns
+            if not sub_df.empty:
+                # Sort by table and seat
+                sub_df = sub_df.sort_values(by=["table_number", "seat"])
+                export_df = sub_df[["table_number", "seat", "name"]]
+                csv = convert_df(export_df)
+                st.sidebar.download_button(
+                    label=f"Export {m_type} (CSV)",
+                    data=csv,
+                    file_name=f"guest_list_{m_type.lower()}.csv",
+                    mime="text/csv",
+                )
 
     # --- LIST View ---
     if view_mode == "Guest List":
@@ -193,9 +273,24 @@ def main():
 
         # Edit Form
         if st.session_state.grid_mode == "Edit" and st.session_state.edit_target is not None:
-            tid = st.session_state.edit_target
-            with st.expander(f"📝 Edit Table {tid}", expanded=True):
-                table_df = df[df['table_number'] == tid].copy()
+            display_tid = st.session_state.edit_target
+            
+            # Resolve Data ID
+            # Re-implement helper logic localized here or move helper to outer scope (preferred to use local calc for robust scope)
+            if layout_view == "Odd/Even":
+                 # display_tid is 1-based sequential
+                 idx = display_tid - 1
+                 r = idx // st.session_state.cols
+                 c = idx % st.session_state.cols
+                 data_tid = get_table_id_oddeven(r, c, st.session_state.cols)
+            else:
+                 data_tid = display_tid
+
+            with st.expander(f"📝 Edit Table {display_tid}", expanded=True):
+                if display_tid != data_tid:
+                    st.caption(f"mapped to Internal Data Table ID: {data_tid}")
+                    
+                table_df = df[df['table_number'] == data_tid].copy()
                 
                 current_group = ""
                 if not table_df.empty:
@@ -211,13 +306,13 @@ def main():
                 edited_guests = st.data_editor(
                     table_df[edit_cols],
                     num_rows="dynamic",
-                    key=f"editor_{tid}"
+                    key=f"editor_{display_tid}" # Keep display ID for key uniqueness
                 )
                 
                 if st.button("Save Changes"):
-                    df = df[df['table_number'] != tid]
+                    df = df[df['table_number'] != data_tid]
                     if not edited_guests.empty:
-                        edited_guests['table_number'] = tid
+                        edited_guests['table_number'] = data_tid
                         edited_guests['gp_name'] = new_group_name
                         edited_guests['gp_id'] = 0 
                         df = pd.concat([df, edited_guests], ignore_index=True)
@@ -240,13 +335,36 @@ def main():
         current_rows = st.session_state.rows
         current_cols = st.session_state.cols
         
+        # Helper to map Display ID -> Data ID based entirely on current view mode
+        # We need to find the (r,c) for a given Display ID (Sequential), then calculate the Data ID (Odd/Even or Seq)
+        def get_data_id_from_display_id(display_id, rows, cols, mode):
+            if mode != "Odd/Even":
+                return display_id
+            
+            # Reverse engineer (r,c) from sequential ID
+            # ID = (r * cols) + (c + 1)
+            # ID - 1 = r * cols + c
+            idx = display_id - 1
+            r = idx // cols
+            c = idx % cols
+            
+            return get_table_id_oddeven(r, c, cols)
+
         grid_data = []
         for r in range(current_rows):
             for c in range(current_cols):
-                tid = get_table_id(r, c, current_cols)
-                data = table_map.get(tid, {'occupied': False, 'group': '', 'count': 0})
+                display_id = get_table_id(r, c, current_cols)
+                
+                if layout_view == "Odd/Even":
+                    data_id = get_table_id_oddeven(r, c, current_cols)
+                else:
+                    data_id = display_id
+                
+                data = table_map.get(data_id, {'occupied': False, 'group': '', 'count': 0})
+                
+                # Send DISPLAY ID to the frontend component
                 grid_data.append({
-                    'id': tid,
+                    'id': display_id,
                     'occupied': data['occupied'],
                     'group': data['group'],
                     'count': data['count']
@@ -264,21 +382,23 @@ def main():
 
         if event:
             if event.get("action") == "swap":
-                t1 = event.get("fromId")
-                t2 = event.get("toId")
-                if t1 and t2 and t1 != t2:
+                d_t1 = event.get("fromId")
+                d_t2 = event.get("toId")
+                
+                if d_t1 and d_t2 and d_t1 != d_t2:
+                    # Convert Display IDs -> Data IDs
+                    t1 = get_data_id_from_display_id(d_t1, current_rows, current_cols, layout_view)
+                    t2 = get_data_id_from_display_id(d_t2, current_rows, current_cols, layout_view)
+                    
                     new_df = swap_tables(df, t1, t2)
                     save_data(new_df)
-                    st.toast(f"Swapped Table {t1} and {t2}")
+                    st.toast(f"Swapped Table {d_t1} ({t1}) and {d_t2} ({t2})")
                     st.session_state.grid_component_key += 1
                     st.rerun()
             
             elif event.get("action") == "edit":
-                tid = event.get("tableId")
-                st.session_state.edit_target = tid
-                # st.session_state.grid_component_key += 1 # Optional: if we want to force re-render to show selection highlight rendered by JS
-                # For selection, we passed selectedId to the component. 
-                # But to update that prop, we need a rerun.
+                d_tid = event.get("tableId")
+                st.session_state.edit_target = d_tid
                 st.rerun()
 
 if __name__ == "__main__":
