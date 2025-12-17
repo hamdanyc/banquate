@@ -241,7 +241,7 @@ def main():
         display_df = display_df.reset_index(drop=True)
         display_df.index = display_df.index + 1
         
-        st.dataframe(display_df, use_container_width=True)
+        st.dataframe(display_df, width="stretch")
         
     # --- GRID View ---
     else:

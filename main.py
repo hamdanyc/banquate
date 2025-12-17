@@ -249,7 +249,7 @@ def main():
             }
         ))
         fig.update_layout(height=250, margin=dict(t=30, b=10, l=30, r=40))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     st.markdown("---")
 
@@ -268,7 +268,7 @@ def main():
         with mc1:
              st.dataframe(
                 menu_counts, 
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
                 column_config={
                     "Count": st.column_config.ProgressColumn(
@@ -287,7 +287,7 @@ def main():
         with mc2:
             fig_pie = px.pie(menu_counts, values='Count', names='Menu Type', hole=0.4, title="Distribution")
             fig_pie.update_layout(margin=dict(t=40, b=0, l=0, r=0), height=300)
-            st.plotly_chart(fig_pie, use_container_width=True)
+            st.plotly_chart(fig_pie, width="stretch")
 
 if __name__ == "__main__":
     main()
