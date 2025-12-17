@@ -1,4 +1,4 @@
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, KeepTogether
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -140,7 +140,7 @@ def generate_guest_list_by_table(df):
     buffer.seek(0)
     return buffer
 
-def generate_table_summary(df):
+def generate_table_summary(df, table_order=None):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4)
     elements = []
@@ -155,7 +155,11 @@ def generate_table_summary(df):
     if 'table_number' in df.columns:
         df['table_number'] = pd.to_numeric(df['table_number'], errors='coerce').fillna(0)
     
-    unique_tables = sorted(df['table_number'].unique())
+    if table_order is not None:
+        # Use provided order, filtering out 0 if present or ensuring it's valid
+        unique_tables = [t for t in table_order if t != 0]
+    else:
+        unique_tables = sorted(df['table_number'].unique())
     
     # Init Totals
     sum_total_guests = 0
@@ -257,6 +261,79 @@ def generate_table_summary(df):
     style_cmds.append(('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'))
     
     t.setStyle(TableStyle(style_cmds))
+    
+    elements.append(t)
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+def generate_floor_plan_layout(df, table_order, rows, cols):
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4))
+    elements = []
+    
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'FPTitle',
+        parent=styles['Heading1'],
+        fontSize=18,
+        spaceAfter=10,
+        textColor=colors.black,
+        alignment=1 # CENTER
+    )
+    
+    elements.append(Paragraph("Floor Plan Layout Simulation", title_style))
+    elements.append(Spacer(1, 20))
+    
+    # Grid Data
+    # 2D array of text
+    grid_data = [['' for _ in range(cols)] for _ in range(rows)]
+    
+    for r in range(rows):
+        for c in range(cols):
+            # Calculate linear index based on row-major order
+            idx = r * cols + c
+            
+            if idx < len(table_order):
+                table_id = table_order[idx]
+                
+                # Get info
+                if table_id == 0:
+                     cell_text = ""
+                else:
+                    table_df = df[df['table_number'] == table_id]
+                    count = len(table_df)
+                    gp_name = ""
+                    if not table_df.empty and 'gp_name' in table_df.columns:
+                         # limit length
+                         name = str(table_df.iloc[0]['gp_name'])
+                         if len(name) > 15:
+                             name = name[:12] + "..."
+                         gp_name = name
+                    
+                    cell_text = f"T{table_id}\n{gp_name}\n({count} pax)"
+                
+                grid_data[r][c] = cell_text
+    
+    # Calculate cell size
+    # A4 Landscape width ~840 points. Margins default to ~72. Usable ~700.
+    # 700 / 9 cols ~ 77 pts.
+    # Height ~595. Margins 72. Usable ~450.
+    # 450 / 7 rows ~ 64 pts.
+    
+    col_width = 75
+    row_height = 60
+    
+    t = Table(grid_data, colWidths=[col_width]*cols, rowHeights=[row_height]*rows)
+    t.setStyle(TableStyle([
+        ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('FONTSIZE', (0,0), (-1,-1), 8),
+        ('BACKGROUND', (0,0), (-1,-1), colors.whitesmoke),
+        ('LEFTPADDING', (0,0), (-1,-1), 2),
+        ('RIGHTPADDING', (0,0), (-1,-1), 2),
+    ]))
     
     elements.append(t)
     doc.build(elements)

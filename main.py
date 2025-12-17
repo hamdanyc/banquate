@@ -4,6 +4,8 @@ import pandas as pd
 import os
 import plotly.graph_objects as go
 import plotly.express as px
+from pdf_gen import generate_table_summary, generate_floor_plan_layout
+import simulation_utils
 
 # --- Configuration ---
 DATA_FILE = "data/guest_list.csv"
@@ -87,6 +89,54 @@ def main():
         index=0,
         help="Sequential: 1,2,3,4...\nOdd/Even: 1,3,5... | 2,4,6..."
     )
+
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🏗️ Simulation")
+    
+    with st.sidebar.expander("Simulate Layout Change"):
+        insert_input = st.text_input(
+            "Insert New Tables After (e.g. 7, 13)",
+            value="7",
+            help="Enter table numbers separated by commas."
+        )
+        
+        if st.button("Simulate Change"):
+            # Parse input
+            try:
+                insert_after_ids = [int(x.strip()) for x in insert_input.split(',') if x.strip().isdigit()]
+            except:
+                insert_after_ids = []
+            
+            if not insert_after_ids:
+                 st.sidebar.warning("Please enter valid table numbers.")
+            else:
+                try:
+                    # 1. Run Simulation Logic
+                    sim_df, new_order, new_ids = simulation_utils.simulate_table_addition(df, insert_after_ids)
+                    
+                    # 2. Generate Summary PDF
+                    pdf_buffer = generate_table_summary(sim_df, table_order=new_order)
+                    
+                    # 3. Generate Floor Plan PDF
+                    fp_buffer = generate_floor_plan_layout(sim_df, new_order, DEFAULT_ROWS, DEFAULT_COLS)
+                    
+                    st.sidebar.success(f"Generated! New Tables: {new_ids}")
+                    
+                    st.sidebar.download_button(
+                        label="📄 Download Simulation PDF",
+                        data=pdf_buffer,
+                        file_name=f"simulated_summary.pdf",
+                        mime="application/pdf"
+                    )
+                    
+                    st.sidebar.download_button(
+                        label="🗺️ Download Floor Plan PDF",
+                        data=fp_buffer,
+                        file_name=f"simulated_floor_plan.pdf",
+                        mime="application/pdf"
+                    )
+                except Exception as e:
+                    st.sidebar.error(f"Simulation failed: {e}")
 
     # Use Defaults directly
     target_guests = DEFAULT_TARGET
