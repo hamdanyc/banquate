@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Banquet Grid</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: transparent;
+            /* match streamlit theme */
+        }
+
+        #grid-container {
+            display: grid;
+            gap: 10px;
+            padding: 10px;
+            /* grid-template-columns set by JS */
+        }
+
+        .table-box {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 5px;
+            text-align: center;
+            height: 110px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: #f0f0f0;
+            color: #333;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.1s;
+            user-select: none;
+            position: relative;
+        }
+
+        .table-box:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .table-box.occupied {
+            background-color: #00bcd4;
+            color: white;
+            border-color: #008ba3;
+        }
+
+        .table-box.vacant {
+            background-color: #555;
+            color: #ddd;
+        }
+
+        .table-box.selected {
+            border: 4px solid #ffeb3b;
+            transform: scale(1.05);
+            z-index: 10;
+        }
+
+        .table-box.dragging {
+            opacity: 0.5;
+            border: 2px dashed #333;
+        }
+
+        .table-box.drag-over {
+            border: 4px dashed #ff9800;
+            /* Distinct highlight for drop target */
+        }
+
+        .table-id {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 4px;
+        }
+
+        .group-name {
+            font-weight: bold;
+            font-size: 0.9em;
+            line-height: 1.1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            max-height: 2.2em;
+        }
+
+        .guest-count {
+            margin-top: 4px;
+            font-size: 0.8em;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="grid-container"></div>
+
+    <script>
+        // --- INLINED STREAMLIT HELPER (SIMPLIFIED) ---
+        // Replacing external dependency to ensure robust loading
+
+        const Streamlit = {
+            API_VERSION: 1,
+            RENDER_EVENT: "streamlit:render",
+            events: new EventTarget(),
+            registeredMessageListener: false,
+
+            setComponentReady: function () {
+                if (!this.registeredMessageListener) {
+                    window.addEventListener("message", this.onMessageEvent.bind(this));
+                    this.registeredMessageListener = true;
+                }
+                this.sendBackMsg("streamlit:componentReady", { apiVersion: this.API_VERSION });
+            },
+
+            setFrameHeight: function (height) {
+                if (height === undefined) {
+                    height = document.body.scrollHeight;
+                }
+                this.sendBackMsg("streamlit:setFrameHeight", { height: height });
+            },
+
+            setComponentValue: function (value) {
+                // We assume JSON data type for simplicity
+                this.sendBackMsg("streamlit:setComponentValue", { value: value, dataType: "json" });
+            },
+
+            onMessageEvent: function (event) {
+                if (event.data.type === this.RENDER_EVENT) {
+                    this.onRenderMessage(event.data);
+                }
+            },
+
+            onRenderMessage: function (data) {
+                const args = data.args;
+                const theme = data.theme;
+                if (theme) this.injectTheme(theme);
+
+                const event = new CustomEvent(this.RENDER_EVENT, { detail: { args: args, theme: theme } });
+                this.events.dispatchEvent(event);
+            },
+
+            injectTheme: function (theme) {
+                if (!this.styleElement) {
+                    this.styleElement = document.createElement("style");
+                    document.head.appendChild(this.styleElement);
+                }
+                this.styleElement.innerHTML = `
+                    :root {
+                        --primary-color: ${theme.primaryColor};
+                        --background-color: ${theme.backgroundColor};
+                        --secondary-background-color: ${theme.secondaryBackgroundColor};
+                        --text-color: ${theme.textColor};
+                        --font: ${theme.font};
+                    }
+                    body {
+                        background-color: var(--background-color);
+                        color: var(--text-color);
+                    }
+                `;
+            },
+
+            sendBackMsg: function (type, data) {
+                window.parent.postMessage({ isStreamlitMessage: true, type: type, ...data }, "*");
+            }
+        };
+
+        // --- GRID LOGIC ---
+
+        let gridData = [];
+        let gridMode = "Move";
+
+        function onRender(event) {
+            const { args } = event.detail;
+            const { tables, rows, cols, mode, selectedId } = args;
+
+            gridData = tables;
+            gridMode = mode;
+
+            const container = document.getElementById('grid-container');
+
+            // Rebuild DOM
+            container.innerHTML = '';
+            container.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+
+            tables.forEach(table => {
+                const div = document.createElement('div');
+                div.className = `table-box ${table.occupied ? 'occupied' : 'vacant'}`;
+                if (table.id === selectedId) div.classList.add('selected');
+
+                div.id = `table-${table.id}`;
+                div.setAttribute('draggable', gridMode === 'Move');
+
+                div.dataset.id = table.id;
+
+                div.innerHTML = `
+                    <div class="table-id">${table.id}</div>
+                    <div class="group-name">${table.occupied ? table.group : 'Vacant'}</div>
+                    ${table.occupied ? `<div class="guest-count">${table.count} pax</div>` : ''}
+                `;
+
+                div.addEventListener('click', handleClick);
+
+                if (gridMode === 'Move') {
+                    div.addEventListener('dragstart', handleDragStart);
+                    div.addEventListener('dragover', handleDragOver);
+                    div.addEventListener('dragleave', handleDragLeave);
+                    div.addEventListener('drop', handleDrop);
+                    div.addEventListener('dragend', handleDragEnd);
+                }
+
+                container.appendChild(div);
+            });
+
+            Streamlit.setFrameHeight();
+        }
+
+        function handleClick(e) {
+            const id = parseInt(e.currentTarget.dataset.id);
+            if (gridMode === 'Edit') {
+                Streamlit.setComponentValue({ action: 'edit', tableId: id });
+            }
+        }
+
+        let dragSrcEl = null;
+
+        function handleDragStart(e) {
+            this.classList.add('dragging');
+            dragSrcEl = this;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', this.dataset.id);
+        }
+
+        function handleDragOver(e) {
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            if (this !== dragSrcEl) {
+                this.classList.add('drag-over');
+            }
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleDragLeave(e) {
+            this.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+            if (dragSrcEl !== this) {
+                const srcId = parseInt(dragSrcEl.dataset.id);
+                const targetId = parseInt(this.dataset.id);
+
+                Streamlit.setComponentValue({
+                    action: 'swap',
+                    fromId: srcId,
+                    toId: targetId
+                });
+            }
+            return false;
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            const items = document.querySelectorAll('.table-box');
+            items.forEach(function (item) {
+                item.classList.remove('drag-over');
+            });
+        }
+
+        // Initialize
+        Streamlit.events.addEventListener(Streamlit.RENDER_EVENT, onRender);
+        Streamlit.setComponentReady();
+        Streamlit.setFrameHeight();
+    </script>
+</body>
+
+</html>
