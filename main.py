@@ -143,6 +143,29 @@ def main():
     rows = DEFAULT_ROWS
     cols = DEFAULT_COLS
 
+    # --- HEAD TABLE SECTION ---
+    st.subheader("👑 Meja DiRaja")
+    
+    # Data for head tables (Static for now as requested)
+    head_tables = [
+        {'id': 1001, 'occupied': True, 'group': 'DiRaja', 'count': 8}, # ID arbitrary
+        {'id': 1002, 'occupied': True, 'group': 'DiRaja', 'count': 8}
+    ]
+    
+    # Centering using columns: 2 tables width vs 9 tables width ~ 2/9 scale
+    # Layout: [Spacer] [HeadGrid] [Spacer]
+    hc1, hc2, hc3 = st.columns([3.5, 2, 3.5]) 
+    with hc2:
+        custom_grid(
+            tables=head_tables,
+            rows=1,
+            cols=2,
+            mode="View",
+            selectedId=None,
+            key="head_table_grid"
+        )
+
+
     # --- TOP SECTION: GRID VIEW ---
     st.subheader("📍 Live Floor Plan")
     
