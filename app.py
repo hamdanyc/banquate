@@ -273,18 +273,9 @@ def main():
 
         # Edit Form
         if st.session_state.grid_mode == "Edit" and st.session_state.edit_target is not None:
+            # ID returned from grid is now the actual Data Table ID
             display_tid = st.session_state.edit_target
-            
-            # Resolve Data ID
-            # Re-implement helper logic localized here or move helper to outer scope (preferred to use local calc for robust scope)
-            if layout_view == "Odd/Even":
-                 # display_tid is 1-based sequential
-                 idx = display_tid - 1
-                 r = idx // st.session_state.cols
-                 c = idx % st.session_state.cols
-                 data_tid = get_table_id_oddeven(r, c, st.session_state.cols)
-            else:
-                 data_tid = display_tid
+            data_tid = display_tid
 
             with st.expander(f"📝 Edit Table {display_tid}", expanded=True):
                 if display_tid != data_tid:
@@ -334,37 +325,21 @@ def main():
             
         current_rows = st.session_state.rows
         current_cols = st.session_state.cols
-        
-        # Helper to map Display ID -> Data ID based entirely on current view mode
-        # We need to find the (r,c) for a given Display ID (Sequential), then calculate the Data ID (Odd/Even or Seq)
-        def get_data_id_from_display_id(display_id, rows, cols, mode):
-            if mode != "Odd/Even":
-                return display_id
-            
-            # Reverse engineer (r,c) from sequential ID
-            # ID = (r * cols) + (c + 1)
-            # ID - 1 = r * cols + c
-            idx = display_id - 1
-            r = idx // cols
-            c = idx % cols
-            
-            return get_table_id_oddeven(r, c, cols)
 
         grid_data = []
         for r in range(current_rows):
             for c in range(current_cols):
-                display_id = get_table_id(r, c, current_cols)
-                
+                # Calculate the table ID based on the current mode
                 if layout_view == "Odd/Even":
                     data_id = get_table_id_oddeven(r, c, current_cols)
                 else:
-                    data_id = display_id
+                    data_id = get_table_id(r, c, current_cols)
                 
                 data = table_map.get(data_id, {'occupied': False, 'group': '', 'count': 0})
                 
-                # Send DISPLAY ID to the frontend component
+                # Send the ACTUAL table ID to the frontend
                 grid_data.append({
-                    'id': display_id,
+                    'id': data_id,
                     'occupied': data['occupied'],
                     'group': data['group'],
                     'count': data['count']
@@ -386,9 +361,10 @@ def main():
                 d_t2 = event.get("toId")
                 
                 if d_t1 and d_t2 and d_t1 != d_t2:
-                    # Convert Display IDs -> Data IDs
-                    t1 = get_data_id_from_display_id(d_t1, current_rows, current_cols, layout_view)
-                    t2 = get_data_id_from_display_id(d_t2, current_rows, current_cols, layout_view)
+                    # IDs returned by the grid are now always the actual Data IDs (Table Numbers)
+                    # No conversion needed
+                    t1 = d_t1
+                    t2 = d_t2
                     
                     new_df = swap_tables(df, t1, t2)
                     save_data(new_df)
