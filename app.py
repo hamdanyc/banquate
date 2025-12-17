@@ -11,7 +11,6 @@ DEFAULT_COLS = 9
 DATA_FILE = "data/guest_list.csv"
 
 # --- Component Definition ---
-import os
 parent_dir = os.path.dirname(os.path.abspath(__file__))
 component_path = os.path.join(parent_dir, "grid_component")
 print(f"Loading component from: {component_path}")
