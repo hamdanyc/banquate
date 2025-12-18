@@ -34,29 +34,7 @@ def get_credentials():
             return json.loads(gcp_json)
         except json.JSONDecodeError as e:
             st.warning(f"Failed to parse GCP_SERVICE_ACCOUNT environment variable: {e}")
-    
-    # Try individual environment variables (for Posit Connect - Option 2)
-    env_creds = {
-        'type': os.environ.get('GCP_TYPE'),
-        'project_id': os.environ.get('GCP_PROJECT_ID'),
-        'private_key_id': os.environ.get('GCP_PRIVATE_KEY_ID'),
-        'private_key': os.environ.get('GCP_PRIVATE_KEY'),
-        'client_email': os.environ.get('GCP_CLIENT_EMAIL'),
-        'client_id': os.environ.get('GCP_CLIENT_ID'),
-        'auth_uri': os.environ.get('GCP_AUTH_URI', 'https://accounts.google.com/o/oauth2/auth'),
-        'token_uri': os.environ.get('GCP_TOKEN_URI', 'https://oauth2.googleapis.com/token'),
-        'auth_provider_x509_cert_url': os.environ.get('GCP_AUTH_PROVIDER_CERT_URL', 'https://www.googleapis.com/oauth2/v1/certs'),
-        'client_x509_cert_url': os.environ.get('GCP_CLIENT_CERT_URL'),
-    }
-    
-    # Check if all required fields are present
-    required_fields = ['type', 'project_id', 'private_key', 'client_email']
-    if all(env_creds.get(field) for field in required_fields):
-        # Fix private key formatting (replace literal \n with actual newlines)
-        if env_creds['private_key']:
-            env_creds['private_key'] = env_creds['private_key'].replace('\\n', '\n')
-        return env_creds
-    
+            
     # No credentials found
     return None
 
