@@ -3,12 +3,15 @@ import streamlit.components.v1 as components
 import pandas as pd
 import os
 import plotly.graph_objects as go
+import sheets_loader
 import plotly.express as px
 from pdf_gen import generate_table_summary, generate_floor_plan_layout
 import simulation_utils
 
 # --- Configuration ---
-DATA_FILE = "data/guest_list.csv"
+# Google Sheets Configuration
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1twmu4Ktr9l_798eoeXkfcctWzs3u6BzYlpd8Q_cu0lY/edit?usp=sharing"
+WORKSHEET_INDEX = 0  # First worksheet (gid=0)
 DEFAULT_TARGET = 500
 DEFAULT_ROWS = 7
 DEFAULT_COLS = 9
@@ -20,19 +23,17 @@ custom_grid = components.declare_component("banquet_grid", path=component_path)
 
 # --- Data Loading ---
 def load_data():
-    if not os.path.exists(DATA_FILE):
-        return pd.DataFrame(columns=["table_number", "seat", "name", "menu", "gp_id", "gp_name"])
+    """Load guest data from Google Sheets"""
     try:
-        df = pd.read_csv(DATA_FILE)
-        # Ensure consistent types
+        df = sheets_loader.load_from_google_sheets(SHEET_URL, WORKSHEET_INDEX)
         if 'table_number' in df.columns:
             df['table_number'] = pd.to_numeric(df['table_number'], errors='coerce').fillna(0).astype(int)
         return df
     except Exception as e:
-        st.error(f"Error loading data: {e}")
-        return pd.DataFrame()
+        st.error(f"Error loading data from Google Sheets: {e}")
+        st.info("Please ensure the Google Sheet is shared with 'Anyone with the link can view'")
+        return pd.DataFrame(columns=["table_number", "seat", "name", "menu", "gp_id", "gp_name"])
 
-# --- Helper: Table ID Logic ---
 def get_table_id_sequential(r, c, cols):
     """Standard sequential numbering: 1, 2, 3... across rows."""
     return (r * cols) + (c + 1)

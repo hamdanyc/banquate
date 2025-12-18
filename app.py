@@ -3,12 +3,15 @@ import streamlit.components.v1 as components
 import pandas as pd
 import os
 import pdf_gen
+import sheets_loader
 import dashboard_gen
 
 # --- Configuration ---
 DEFAULT_ROWS = 7
 DEFAULT_COLS = 9
-DATA_FILE = "data/guest_list.csv"
+# Google Sheets Configuration
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1twmu4Ktr9l_798eoeXkfcctWzs3u6BzYlpd8Q_cu0lY/edit?usp=sharing"
+WORKSHEET_INDEX = 0  # First worksheet (gid=0)
 
 # --- Component Definition ---
 parent_dir = os.path.dirname(os.path.abspath(__file__))
@@ -21,26 +24,28 @@ custom_grid = components.declare_component("banquet_grid", path=component_path)
 
 # --- Data Management ---
 def load_data():
-    if not os.path.exists(DATA_FILE):
-        return pd.DataFrame(columns=["table_number", "seat", "name", "menu", "gp_id", "gp_name"])
+    """Load guest data from Google Sheets"""
     try:
-        df = pd.read_csv(DATA_FILE)
+        df = sheets_loader.load_from_google_sheets(SHEET_URL, WORKSHEET_INDEX)
         if 'table_number' in df.columns:
             df['table_number'] = pd.to_numeric(df['table_number'], errors='coerce').fillna(0).astype(int)
         return df
     except Exception as e:
-        st.error(f"Error loading data: {e}")
-        return pd.DataFrame()
+        st.error(f"Error loading data from Google Sheets: {e}")
+        st.info("Please ensure the Google Sheet is shared with 'Anyone with the link can view'")
+        return pd.DataFrame(columns=["table_number", "seat", "name", "menu", "gp_id", "gp_name"])
 
 def save_data(df):
+    """Save guest data to Google Sheets"""
     try:
-        df.to_csv(DATA_FILE, index=False)
-        return True
+        success = sheets_loader.save_to_google_sheets(df, SHEET_URL, WORKSHEET_INDEX)
+        if success:
+            return True
     except Exception as e:
-        st.error(f"Error saving data: {e}")
+        st.error(f"Error saving data to Google Sheets: {e}")
+        st.warning("Save failed. Changes are not persisted to Google Sheets.")
         return False
 
-# --- Business Logic ---
 def get_table_id(r, c, cols):
     """Calculates table number based on grid position (1-based index)."""
     return (r * cols) + (c + 1)
