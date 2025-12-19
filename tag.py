@@ -51,7 +51,7 @@ def generate_menu_cards(csv_file, output_pdf, logo_image='logo/rafoc.png'):
         c.translate(curr_x + width/2, curr_y + side_height + (side_height/2))
         c.rotate(180)
         c.setFont("Helvetica-Bold", 11)
-        c.drawCentredString(0, 0, "ANNUAL DINNER 2025")
+        c.drawCentredString(0, 0, "Majlis Makan Malam RAFOC")
         c.restoreState()
 
         # --- FRONT SECTION (Bottom half of sheet, Upright) ---
@@ -81,7 +81,7 @@ def generate_menu_cards(csv_file, output_pdf, logo_image='logo/rafoc.png'):
 
         # 4. Table and Seat Info
         c.setFont("Helvetica", 10)
-        info_text = f"TABLE: {row['table_number']}    SEAT: {row['seat']}"
+        info_text = f"Meja: {row['table_number']} | {row['seat']}"
         c.drawCentredString(curr_x + width/2, curr_y + 10 * mm, info_text)
         
         # 5. Group/Company Name (Footer)
