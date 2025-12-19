@@ -68,8 +68,8 @@ def generate_cards_from_public_gsheet(sheet_url, output_pdf, logo_path='logo/raf
             c.drawImage(logo_path, -logo_w/2, 2 * mm, width=logo_w, height=logo_h, preserveAspectRatio=True, mask='auto')
         
         # Title: Placed below the logo
-        c.setFont("Helvetica-Bold", 10)
-        c.drawCentredString(0, -12 * mm, "ANNUAL DINNER 2025")
+        c.setFont("Helvetica-Bold", 12)
+        c.drawCentredString(0, -12 * mm, "Majlis Makan Malam RAFOC `25")
         c.restoreState()
 
         # --- SECTION 2: GUEST FACE (Upright) ---
