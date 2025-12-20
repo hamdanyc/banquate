@@ -24,8 +24,8 @@ def get_credentials():
         dict: Service account credentials dictionary, or None if not available
     """
     # Try Streamlit secrets first (for local development)
-    # if hasattr(st, 'secrets') and 'gcp_service_account' in st.secrets:
-    #    return dict(st.secrets['gcp_service_account'])
+    if hasattr(st, 'secrets') and 'gcp_service_account' in st.secrets:
+       return dict(st.secrets['gcp_service_account'])
     
     # Try environment variable with full JSON (for Posit Connect - Option 1)
     gcp_json = os.environ.get('GCP_SERVICE_ACCOUNT')
@@ -80,7 +80,7 @@ def load_from_google_sheets(sheet_url, worksheet_index=0):
     """
     try:
         import gspread
-        from gspread_dataframe import get_as_dataframe
+        # from gspread_dataframe import get_as_dataframe
         
         # Extract sheet ID from URL
         sheet_id = get_sheet_id_from_url(sheet_url)
