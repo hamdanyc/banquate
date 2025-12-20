@@ -10,7 +10,7 @@ import dashboard_gen
 DEFAULT_ROWS = 7
 DEFAULT_COLS = 9
 # Google Sheets Configuration
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1twmu4Ktr9l_798eoeXkfcctWzs3u6BzYlpd8Q_cu0lY/edit?usp=sharing"
+SHEET_URL = st.secrets["SHEET_URL"]
 WORKSHEET_INDEX = 0  # First worksheet (gid=0)
 
 # --- Component Definition ---
