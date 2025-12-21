@@ -24,8 +24,8 @@ def get_credentials():
         dict: Service account credentials dictionary, or None if not available
     """
     # Try Streamlit secrets first (for local development)
-    if hasattr(st, 'secrets') and 'gcp_service_account' in st.secrets:
-       return dict(st.secrets['gcp_service_account'])
+    # if hasattr(st, 'secrets') and 'gcp_service_account' in st.secrets:
+    #   return dict(st.secrets['gcp_service_account'])
     
     # Try environment variable with full JSON (for Posit Connect - Option 1)
     gcp_json = os.environ.get('GCP_SERVICE_ACCOUNT')
