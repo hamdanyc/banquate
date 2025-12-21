@@ -10,7 +10,9 @@ import simulation_utils
 
 # --- Configuration ---
 # Google Sheets Configuration
-SHEET_URL = st.secrets["SHEET_URL"]
+# SHEET_URL = st.secrets["SHEET_URL"]
+# Use os.getenv() to access variables set in Posit Connect
+SHEET_URL = os.getenv("SHEET_URL")
 WORKSHEET_INDEX = 0  # First worksheet (gid=0)
 DEFAULT_TARGET = 500
 DEFAULT_ROWS = 7
