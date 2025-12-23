@@ -1,3 +1,4 @@
+from io import BytesIO
 import pandas as pd
 import textwrap
 import os
@@ -6,25 +7,16 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import mm
 
-def generate_cards_from_public_gsheet(sheet_url, output_pdf, logo_path='logo/rafoc.png'):
-    # Clean the URL to get the direct CSV export link
-    base_url = sheet_url.split('/edit')[0]
-    csv_url = f"{base_url}/export?format=csv"
+def generate_menu_cards_pdf(df, logo_path='logo/rafoc.png'):
+    """Generates menu cards PDF from a DataFrame and returns a BytesIO buffer."""
+    buffer = BytesIO()
     
-    print(f"Fetching data from: {csv_url}")
-    
-    try:
-        df = pd.read_csv(csv_url)
-    except Exception as e:
-        print(f"Error downloading sheet: {e}")
-        return
-
     # 6 cards per A4 page (2 columns x 3 rows)
     width = 90 * mm
     side_height = 48 * mm  # Each face is 48mm
     total_height = side_height * 2 
     
-    c = canvas.Canvas(output_pdf, pagesize=A4)
+    c = canvas.Canvas(buffer, pagesize=A4)
     page_width, page_height = A4
     
     # Layout margins
@@ -69,7 +61,7 @@ def generate_cards_from_public_gsheet(sheet_url, output_pdf, logo_path='logo/raf
         
         # Title: Placed below the logo
         c.setFont("Helvetica-Bold", 12)
-        c.drawCentredString(0, -12 * mm, "Majlis Makan Malam RAFOC `25")
+        c.drawCentredString(0, -12 * mm, "Majlis Makan Malam RAFOC '25")
         c.restoreState()
 
         # --- SECTION 2: GUEST FACE (Upright) ---
@@ -109,8 +101,28 @@ def generate_cards_from_public_gsheet(sheet_url, output_pdf, logo_path='logo/raf
             curr_y = page_height - margin_y - total_height
 
     c.save()
+    buffer.seek(0)
+    return buffer
+
+def generate_cards_from_public_gsheet(sheet_url, output_pdf, logo_path='logo/rafoc.png'):
+    # Clean the URL to get the direct CSV export link
+    base_url = sheet_url.split('/edit')[0]
+    csv_url = f"{base_url}/export?format=csv"
+    
+    print(f"Fetching data from: {csv_url}")
+    
+    try:
+        df = pd.read_csv(csv_url)
+    except Exception as e:
+        print(f"Error downloading sheet: {e}")
+        return
+
+    pdf_buffer = generate_menu_cards_pdf(df, logo_path)
+    with open(output_pdf, "wb") as f:
+        f.write(pdf_buffer.getbuffer())
     print(f"Cards saved to {output_pdf}")
 
-# Execution
-PUBLIC_URL = "https://docs.google.com/spreadsheets/d/1twmu4Ktr9l_798eoeXkfcctWzs3u6BzYlpd8Q_cu0lY/edit?usp=sharing"
-generate_cards_from_public_gsheet(PUBLIC_URL, "Menu_Cards.pdf")
+if __name__ == "__main__":
+    # Execution
+    PUBLIC_URL = "https://docs.google.com/spreadsheets/d/1twmu4Ktr9l_798eoeXkfcctWzs3u6BzYlpd8Q_cu0lY/edit?usp=sharing"
+    generate_cards_from_public_gsheet(PUBLIC_URL, "Menu_Cards.pdf")

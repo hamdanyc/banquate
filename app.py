@@ -5,6 +5,7 @@ import os
 import pdf_gen
 import sheets_loader
 import dashboard_gen
+import tag_gs
 
 # --- Configuration ---
 DEFAULT_ROWS = 7
@@ -175,6 +176,10 @@ def main():
             
             pdf3 = pdf_gen.generate_table_summary(df)
             st.sidebar.download_button("Table Summary", data=pdf3, file_name="table_summary.pdf", mime="application/pdf")
+
+            # Add Menu Cards button
+            menu_cards_pdf = tag_gs.generate_menu_cards_pdf(df)
+            st.sidebar.download_button("Menu Cards (PDF)", data=menu_cards_pdf, file_name="menu_cards.pdf", mime="application/pdf")
 
             # Dashboard Export
             st.sidebar.markdown("---")
