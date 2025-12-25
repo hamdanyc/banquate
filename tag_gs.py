@@ -53,8 +53,8 @@ def generate_menu_cards_pdf(df, logo_path='logo/rafoc.png'):
         
         # Logo: Centered vertically in this section (well away from the fold line)
         if os.path.exists(logo_path):
-            logo_w = 25 * mm
-            logo_h = 15 * mm
+            logo_w = 30 * mm
+            logo_h = 20 * mm
             # Placing it slightly above center (closer to the paper edge)
             # In flipped space, y=0 is center, y=24 is fold, y=-24 is edge.
             c.drawImage(logo_path, -logo_w/2, 2 * mm, width=logo_w, height=logo_h, preserveAspectRatio=True, mask='auto')
